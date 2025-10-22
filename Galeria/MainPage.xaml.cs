@@ -12,7 +12,7 @@ public partial class MainPage : ContentPage
 
         this.SizeChanged += MainPage_SizeChanged;
 
-        LoadImagesAsync(@"X:\downloads"); // zmień na swoją ścieżkę
+        LoadImagesAsync(@"X:\downloads"); // Trzeba ustawić własną ścieżkę (póki co)
     }
 
     private async void LoadImagesAsync(string folderPath)
@@ -49,7 +49,7 @@ public partial class MainPage : ContentPage
                         Aspect = Aspect.AspectFill
                     };
 
-                    // Dodaj gest kliknięcia
+                    // gest kliknięcia
                     var tapGesture = new TapGestureRecognizer();
                     tapGesture.Tapped += (s, e) =>
                     {
@@ -69,7 +69,6 @@ public partial class MainPage : ContentPage
         if (GalleryLayout == null || this.Width <= 0)
             return;
 
-        // Obliczamy szerokość miniaturki na podstawie szerokości ekranu
         int columns = Math.Max(1, (int)(this.Width / MinThumbnailSize));
         double thumbnailSize = (this.Width - (columns + 1) * 6) / columns;
 
@@ -85,7 +84,7 @@ public partial class MainPage : ContentPage
 
     private async void ShowFullScreenImage(string filePath)
     {
-        // Tworzymy półprzezroczysty overlay
+        // overlay
         var overlay = new Grid
         {
             BackgroundColor = new Color(0, 0, 0, 90), // półprzezroczyste czarne tło
@@ -100,7 +99,7 @@ public partial class MainPage : ContentPage
             VerticalOptions = LayoutOptions.Center
         };
 
-        // Dodajemy przycisk zamykania
+        // przycisk zamykania
         var closeButton = new Button
         {
             Text = "✕",
