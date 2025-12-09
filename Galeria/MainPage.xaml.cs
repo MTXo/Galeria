@@ -1,35 +1,148 @@
-﻿using Microsoft.Maui.Controls;
+﻿using Microsoft.Maui.Storage;
+using Microsoft.UI.Xaml;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
+using Windows.Storage.Pickers;
+using WinRT.Interop;
 
 namespace Galeria;
 
 public partial class MainPage : ContentPage
 {
     private const int MinThumbnailSize = 190;
+    private const string SavedFoldersKey = "SavedFolders";
+    private readonly List<string> _savedFolders = new();
+    private bool _foldersPanelVisible = false;
+
     public MainPage()
     {
         InitializeComponent();
-
         this.SizeChanged += MainPage_SizeChanged;
-
-        LoadImagesAsync(@"X:\downloads"); // Trzeba ustawić własną ścieżkę (póki co)
+        LoadSavedFolders();
+        LoadImagesFromSavedFoldersAsync();
     }
 
-    private async void LoadImagesAsync(string folderPath)
+    // --------------------- Ładowanie i zapis folderów ---------------------
+    private void LoadSavedFolders()
+    {
+        var json = Preferences.Default.Get(SavedFoldersKey, string.Empty);
+        if (!string.IsNullOrEmpty(json))
+        {
+            var loaded = JsonSerializer.Deserialize<List<string>>(json);
+            if (loaded != null)
+            {
+                _savedFolders.Clear();
+                _savedFolders.AddRange(loaded); 
+            }
+        }
+        UpdateFoldersListUI();
+    }
+
+    private void SaveFolders()
+    {
+        var json = JsonSerializer.Serialize(_savedFolders);
+        Preferences.Default.Set(SavedFoldersKey, json);
+    }
+
+    // --------------------- Dodawanie folderu ---------------------
+    private async void AddFolderButton_Clicked(object sender, EventArgs e)
+    {
+        try
+        {
+            var picker = new FolderPicker();
+            picker.FileTypeFilter.Add("*");
+
+            var mauiWindow = Microsoft.Maui.Controls.Application.Current!.Windows[0];
+            var nativeWindow = mauiWindow.Handler!.PlatformView as Microsoft.UI.Xaml.Window;
+
+            if (nativeWindow != null)
+            {
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(nativeWindow);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            }
+
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder?.Path != null && !_savedFolders.Contains(folder.Path))
+            {
+                _savedFolders.Add(folder.Path);
+                SaveFolders();
+                UpdateFoldersListUI();
+                await LoadImagesFromFolderAsync(folder.Path);
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Błąd", $"Nie udało się wybrać folderu:\n{ex.Message}", "OK");
+        }
+    }
+
+    // --------------------- Usuwanie folderu ---------------------
+    private void RemoveFolderButton_Clicked(object sender, EventArgs e)
+    {
+        if (sender is Button btn && btn.CommandParameter is string path)
+        {
+            RemoveFolder(path);
+        }
+    }
+
+    private void RemoveFolder(string folderPath)
+    {
+        _savedFolders.Remove(folderPath);
+        SaveFolders();
+
+        FoldersListView.ItemsSource = null;
+        FoldersListView.ItemsSource = _savedFolders.ToList();
+
+        GalleryLayout.Children.Clear();
+        LoadImagesFromSavedFoldersAsync();
+    }
+
+    private void UpdateFoldersListUI()
+    {
+        FoldersListView.ItemsSource = null;
+        FoldersListView.ItemsSource = _savedFolders.ToList();
+    }
+
+    // --------------------- Pokazywanie/ukrywanie panelu ---------------------
+    private void ToggleFoldersPanel_Clicked(object sender, EventArgs e)
+    {
+        if (_foldersPanelVisible)
+        {
+            FoldersPanel.IsVisible = false;
+            _foldersPanelVisible = false;
+        }
+        else
+        {
+            FoldersListView.ItemsSource = _savedFolders.ToList();
+            FoldersPanel.IsVisible = true;
+            _foldersPanelVisible = true;
+        }
+    }
+
+    private void CloseFoldersPanel_Clicked(object sender, EventArgs e)
+    {
+        FoldersPanel.IsVisible = false;
+        _foldersPanelVisible = false;
+    }
+
+    // --------------------- Ładowanie zdjęć ---------------------
+    private async void LoadImagesFromSavedFoldersAsync()
+    {
+        foreach (var folder in _savedFolders)
+            await LoadImagesFromFolderAsync(folder);
+    }
+
+    private async Task LoadImagesFromFolderAsync(string folderPath)
     {
         await Task.Run(() =>
         {
-            if (!Directory.Exists(folderPath))
-            {
-                MainThread.BeginInvokeOnMainThread(() =>
-                    DisplayAlert("Błąd", "Folder nie istnieje", "OK"));
-                return;
-            }
+            if (!Directory.Exists(folderPath)) return;
 
             var files = Directory.GetFiles(folderPath)
-                .Where(f => f.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase) ||
-                            f.EndsWith(".jpg", System.StringComparison.OrdinalIgnoreCase) ||
-                            f.EndsWith(".jpeg", System.StringComparison.OrdinalIgnoreCase));
+                .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                            f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                            f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
 
             foreach (var file in files)
             {
@@ -39,93 +152,75 @@ public partial class MainPage : ContentPage
                     {
                         WidthRequest = MinThumbnailSize,
                         HeightRequest = MinThumbnailSize,
-                        Margin = 3,
+                        Margin = new Microsoft.Maui.Thickness(3),
                         BackgroundColor = Colors.LightGray
                     };
 
                     var image = new Image
                     {
-                        Source = $"file:///{file}",
+                        Source = ImageSource.FromFile(file),
                         Aspect = Aspect.AspectFill
                     };
 
-                    // gest kliknięcia
-                    var tapGesture = new TapGestureRecognizer();
-                    tapGesture.Tapped += (s, e) =>
-                    {
-                        ShowFullScreenImage(file);
-                    };
-                    grid.GestureRecognizers.Add(tapGesture);
-
+                    var tap = new TapGestureRecognizer();
+                    tap.Tapped += (s, e) => ShowFullScreenImage(file);
+                    grid.GestureRecognizers.Add(tap);
                     grid.Children.Add(image);
+
                     GalleryLayout.Children.Add(grid);
                 });
             }
         });
     }
 
+    // --------------------- Responsywność ---------------------
     private void MainPage_SizeChanged(object? sender, EventArgs e)
     {
-        if (GalleryLayout == null || this.Width <= 0)
-            return;
+        if (GalleryLayout == null || this.Width <= 0) return;
 
         int columns = Math.Max(1, (int)(this.Width / MinThumbnailSize));
-        double thumbnailSize = (this.Width - (columns + 1) * 6) / columns;
+        double size = (this.Width - (columns + 1) * 6) / columns;
 
-        foreach (var child in GalleryLayout.Children)
+        foreach (var child in GalleryLayout.Children.OfType<Grid>())
         {
-            if (child is Grid grid)
-            {
-                grid.WidthRequest = thumbnailSize;
-                grid.HeightRequest = thumbnailSize;
-            }
+            child.WidthRequest = size;
+            child.HeightRequest = size;
         }
     }
 
+    // --------------------- Pełny ekran zdjęcia ---------------------
     private async void ShowFullScreenImage(string filePath)
     {
-        // overlay
         var overlay = new Grid
         {
-            BackgroundColor = new Color(0, 0, 0, 90), // półprzezroczyste czarne tło
+            BackgroundColor = new Color(0, 0, 0, 0.85f),
             InputTransparent = false
         };
 
         var image = new Image
         {
-            Source = $"file:///{filePath}",
+            Source = ImageSource.FromFile(filePath),
             Aspect = Aspect.AspectFit,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center
         };
 
-        // przycisk zamykania
-        var closeButton = new Button
+        var closeBtn = new Button
         {
             Text = "✕",
-            BackgroundColor = Colors.Transparent,
+            FontSize = 36,
             TextColor = Colors.White,
-            FontSize = 30,
+            BackgroundColor = Colors.Transparent,
             HorizontalOptions = LayoutOptions.End,
             VerticalOptions = LayoutOptions.Start,
-            Margin = new Thickness(10),
-            Command = new Command(async () =>
-            {
-                await Navigation.PopModalAsync();
-            })
+            Margin = new Microsoft.Maui.Thickness(20),
+            Command = new Command(async () => await Navigation.PopModalAsync())
         };
 
         overlay.Children.Add(image);
-        overlay.Children.Add(closeButton);
+        overlay.Children.Add(closeBtn);
 
-        var popupPage = new ContentPage
-        {
-            BackgroundColor = Colors.Transparent, // nie przesłania całego ekranu
-            Content = overlay
-        };
-
-        await Navigation.PushModalAsync(popupPage, true);
+        var page = new ContentPage { BackgroundColor = Colors.Transparent, Content = overlay };
+        await Navigation.PushModalAsync(page);
     }
-
-
 }
