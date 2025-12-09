@@ -1,10 +1,5 @@
-﻿using Microsoft.Maui.Storage;
-using Microsoft.UI.Xaml;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Windows.Storage.Pickers;
-using WinRT.Interop;
 
 namespace Galeria;
 
@@ -69,6 +64,7 @@ public partial class MainPage : ContentPage
                 SaveFolders();
                 UpdateFoldersListUI();
                 await LoadImagesFromFolderAsync(folder.Path);
+                ShowToast($"Załadowano folder o ścieżce {folder.Path}");
             }
         }
         catch (Exception ex)
@@ -93,6 +89,7 @@ public partial class MainPage : ContentPage
 
         FoldersListView.ItemsSource = null;
         FoldersListView.ItemsSource = _savedFolders.ToList();
+        ShowToast($"Usunięto folder o ścieżce {folderPath}");
 
         GalleryLayout.Children.Clear();
         LoadImagesFromSavedFoldersAsync();
@@ -171,6 +168,107 @@ public partial class MainPage : ContentPage
                 });
             }
         });
+    }
+
+    // --------------------- Odświeżanie ---------------------
+
+    private async void RefreshGallery_Clicked(object sender, EventArgs e)
+    {
+        await ((Button)sender).ScaleTo(0.9, 100);
+        await ((Button)sender).ScaleTo(1.0, 100);
+
+        GalleryLayout.Children.Clear();
+
+        int loadedCount = 0;
+        await Task.Run(() =>
+        {
+            foreach (var folder in _savedFolders.ToList()) // ToList() na wszelki wypadek
+            {
+                if (Directory.Exists(folder))
+                {
+                    var files = Directory.GetFiles(folder)
+                        .Where(f => f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                    f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                    f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
+
+                    loadedCount += files.Count();
+
+                    foreach (var file in files)
+                    {
+                        MainThread.BeginInvokeOnMainThread(() =>
+                        {
+                            var grid = new Grid
+                            {
+                                WidthRequest = MinThumbnailSize,
+                                HeightRequest = MinThumbnailSize,
+                                Margin = new Microsoft.Maui.Thickness(3),
+                                BackgroundColor = Colors.LightGray
+                            };
+
+                            var image = new Image
+                            {
+                                Source = ImageSource.FromFile(file),
+                                Aspect = Aspect.AspectFill
+                            };
+
+                            var tap = new TapGestureRecognizer();
+                            tap.Tapped += (s, e) => ShowFullScreenImage(file);
+                            grid.GestureRecognizers.Add(tap);
+                            grid.Children.Add(image);
+
+                            GalleryLayout.Children.Add(grid);
+                        });
+                    }
+                }
+            }
+        });
+
+        ShowToast($"Gotowe! Załadowano {loadedCount} zdjęć", 3000);
+    }
+
+    // --------------------- Toasty ---------------------
+    private async void ShowToast(string message, int durationMs = 2500)
+    {
+        var toast = new Label
+        {
+            Text = message,
+            TextColor = Colors.White,
+            BackgroundColor = new Color(0, 0, 0, 0.85f),
+            FontSize = 16,
+            FontAttributes = FontAttributes.Bold,
+            Padding = new Microsoft.Maui.Thickness(24, 14),
+            HorizontalTextAlignment = Microsoft.Maui.TextAlignment.Center,
+            Shadow = new Shadow { Radius = 12, Opacity = 0.6f, Offset = new Point(0, 6) },
+            Opacity = 0,
+            TranslationY = -100,
+            HorizontalOptions = LayoutOptions.Center,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Microsoft.Maui.Thickness(20, 40, 20, 0)  // od góry 40px, boki 20px
+        };
+
+        if (Content is Layout layout)
+            layout.Children.Add(toast);
+        else
+            ((Grid)Content).Children.Add(toast);
+
+        // Animacja wejścia
+        await toast.TranslateTo(0, 20, 400, Easing.CubicOut);
+        await toast.FadeTo(1, 300);
+
+        // Czekamy
+        await Task.Delay(durationMs);
+
+        // Animacja wyjścia
+        await Task.WhenAll(
+            toast.TranslateTo(0, -100, 400, Easing.CubicIn),
+            toast.FadeTo(0, 300)
+        );
+
+        // Usuwamy
+        if (Content is Layout l)
+            l.Children.Remove(toast);
+        else
+            ((Grid)Content).Children.Remove(toast);
     }
 
     // --------------------- Responsywność ---------------------
