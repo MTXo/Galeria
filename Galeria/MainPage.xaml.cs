@@ -8,6 +8,7 @@ public partial class MainPage : ContentPage
     private const int MinThumbnailSize = 190;
     private const string SavedFoldersKey = "SavedFolders";
     private readonly List<string> _savedFolders = new();
+    private readonly List<string> _allImages = new(); // Lista wszystkich zdjęć
     private bool _foldersPanelVisible = false;
 
     public MainPage()
@@ -28,7 +29,7 @@ public partial class MainPage : ContentPage
             if (loaded != null)
             {
                 _savedFolders.Clear();
-                _savedFolders.AddRange(loaded); 
+                _savedFolders.AddRange(loaded);
             }
         }
         UpdateFoldersListUI();
@@ -92,6 +93,7 @@ public partial class MainPage : ContentPage
         ShowToast($"Usunięto folder o ścieżce {folderPath}");
 
         GalleryLayout.Children.Clear();
+        _allImages.Clear(); // Czyścimy listę wszystkich zdjęć
         LoadImagesFromSavedFoldersAsync();
     }
 
@@ -143,6 +145,7 @@ public partial class MainPage : ContentPage
 
             foreach (var file in files)
             {
+                _allImages.Add(file); // Dodajemy do listy wszystkich zdjęć
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     var grid = new Grid
@@ -320,5 +323,47 @@ public partial class MainPage : ContentPage
 
         var page = new ContentPage { BackgroundColor = Colors.Transparent, Content = overlay };
         await Navigation.PushModalAsync(page);
+    }
+
+    // --------------------- WYSZUKIWARKA PO NAZWIE I FOLDERZE ---------------------
+    private void SearchEntry_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        string query = e.NewTextValue?.Trim().ToLower() ?? string.Empty;
+
+        GalleryLayout.Children.Clear();
+
+        var filtered = string.IsNullOrEmpty(query)
+            ? _allImages
+            : _allImages.Where(f =>
+                Path.GetFileName(f).ToLower().Contains(query) || // nazwa pliku
+                Path.GetDirectoryName(f).ToLower().Contains(query) // nazwa folderu
+            );
+
+        foreach (var file in filtered)
+        {
+            var grid = new Grid
+            {
+                WidthRequest = MinThumbnailSize,
+                HeightRequest = MinThumbnailSize,
+                Margin = new Microsoft.Maui.Thickness(3),
+                BackgroundColor = Colors.LightGray
+            };
+
+            var image = new Image
+            {
+                Source = ImageSource.FromFile(file),
+                Aspect = Aspect.AspectFill
+            };
+
+            var tap = new TapGestureRecognizer();
+            tap.Tapped += (s, ev) => ShowFullScreenImage(file);
+            grid.GestureRecognizers.Add(tap);
+            grid.Children.Add(image);
+
+            GalleryLayout.Children.Add(grid);
+        }
+
+        // Zachowujemy responsywność miniaturek
+        MainPage_SizeChanged(null, null);
     }
 }

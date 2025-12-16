@@ -4,7 +4,7 @@
              x:Class="Galeria.MainPage"
              BackgroundColor="#FAFAFA">
 
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
 
         <!-- Górny pasek z tytułem i przyciskiem "Zapisane" -->
         <Grid HeightRequest="70" BackgroundColor="#2C3E50" Grid.Row="0">
@@ -51,6 +51,17 @@
                 Grid.Row="1"/>
 
         <ScrollView Grid.Row="2">
+        <!-- WYSZUKIWARKA -->
+        <Entry x:Name="SearchEntry"
+               Grid.Row="2"
+               Margin="20,0,20,10"
+               HeightRequest="50"
+               Placeholder="Szukaj zdjęć..."
+               BackgroundColor="White"
+               TextChanged="SearchEntry_TextChanged"/>
+
+        <!-- Główna galeria -->
+        <ScrollView Grid.Row="3">
             <FlexLayout x:Name="GalleryLayout"
                         Wrap="Wrap"
                         JustifyContent="Center"
@@ -97,7 +108,7 @@
                                                VerticalOptions="Center"
                                                Grid.Column="0"/>
 
-                                           <Label Text="{Binding .}"
+                                            <Label Text="{Binding .}"
                                                FontSize="15"
                                                TextColor="#2C3E50"
                                                VerticalOptions="Center"
