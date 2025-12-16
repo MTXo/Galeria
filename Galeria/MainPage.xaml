@@ -8,30 +8,38 @@
 
         <!-- Górny pasek z tytułem i przyciskiem "Zapisane" -->
         <Grid HeightRequest="70" BackgroundColor="#2C3E50" Grid.Row="0">
+            <Label Text="Galeria zdjęć"
+                FontSize="24"
+                FontAttributes="Bold"
+                TextColor="White"
+                VerticalOptions="Center"
+                HorizontalOptions="Center"
+                Grid.Column="0"/>
             <Grid ColumnDefinitions="*,Auto,Auto">
-                <Label Text="Galeria zdjęć"
-                       FontSize="24"
-                       FontAttributes="Bold"
-                       TextColor="White"
-                       VerticalOptions="Center"
-                       HorizontalOptions="Center"
-                       Grid.Column="0"/>
+                <Button Text="Odśwież"
+                BackgroundColor="#27AE60"
+                TextColor="White"
+                CornerRadius="25"
+                WidthRequest="110"
+                HeightRequest="48"
+                FontSize="14"
+                Margin="10,0,5,0"
+                Grid.Column="1"
+                Clicked="RefreshGallery_Clicked"/>
 
-                <!-- Przycisk ZAPISANE -->
-                <Button Text="Zapisane"
-                        BackgroundColor="#3498DB"
-                        TextColor="White"
-                        CornerRadius="25"
-                        WidthRequest="120"
-                        HeightRequest="48"
-                        FontSize="14"
-                        Margin="10"
-                        Grid.Column="1"
-                        Clicked="ToggleFoldersPanel_Clicked"/>
+                <Button Text="Zapisane Foldery"
+                BackgroundColor="#3498DB"
+                TextColor="White"
+                CornerRadius="25"
+                WidthRequest="180"
+                HeightRequest="48"
+                FontSize="14"
+                Margin="5,0,15,0"
+                Grid.Column="2"
+                Clicked="ToggleFoldersPanel_Clicked"/>
             </Grid>
         </Grid>
 
-        <!-- Przycisk DODAJ FOLDER (pod paskiem) -->
         <Button Text="Dodaj folder ze zdjęciami"
                 Clicked="AddFolderButton_Clicked"
                 BackgroundColor="#27AE60"
@@ -42,6 +50,7 @@
                 Margin="20,10"
                 Grid.Row="1"/>
 
+        <ScrollView Grid.Row="2">
         <!-- WYSZUKIWARKA -->
         <Entry x:Name="SearchEntry"
                Grid.Row="2"
@@ -60,16 +69,13 @@
                         Margin="5"/>
         </ScrollView>
 
-        <!-- Panel z listą zapisanych folderów (overlay) -->
         <Grid x:Name="FoldersPanel"
               Grid.Row="0"
               Grid.RowSpan="3"
               BackgroundColor="#CC000000"
               IsVisible="False">
 
-            <Frame BackgroundColor="White"
-                   CornerRadius="20"
-                   HasShadow="True"
+            <Border BackgroundColor="White"
                    Padding="20"
                    HorizontalOptions="Center"
                    VerticalOptions="Center"
@@ -133,7 +139,7 @@
                             Grid.Row="2"
                             Clicked="CloseFoldersPanel_Clicked"/>
                 </Grid>
-            </Frame>
+            </Border>
         </Grid>
     </Grid>
 </ContentPage>
