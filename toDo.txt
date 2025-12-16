@@ -1,0 +1,5 @@
+- dodawanie tagów i/lub opisów do zdjęć
+- możliwość zmiany nazwy zdjęcia bądź w przyszłości tagu i/lub opisu
+
+
+- połączenie z api lub bazą danych (jeszcze nie wiem jakie)
